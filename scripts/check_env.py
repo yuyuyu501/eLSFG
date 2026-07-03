@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import sys
 from pathlib import Path
 
@@ -29,18 +30,23 @@ def check_torch() -> None:
 
 def check_imports() -> None:
     import cv2
-    import dxcam
     import mss
     import numpy
     import PySide6
-    import win32gui
 
     print(f"numpy: {numpy.__version__}")
     print(f"cv2: {cv2.__version__}")
     print(f"PySide6: {PySide6.__version__}")
-    print(f"dxcam: {dxcam.__name__}")
     print(f"mss: {mss.__name__}")
-    print(f"win32gui: {win32gui.__name__}")
+    if platform.system() == "Windows":
+        import dxcam
+        import win32gui
+
+        print(f"dxcam: {dxcam.__name__}")
+        print(f"win32gui: {win32gui.__name__}")
+    else:
+        print("dxcam: skipped on non-Windows")
+        print("win32gui: skipped on non-Windows")
 
 
 def check_qt() -> None:
