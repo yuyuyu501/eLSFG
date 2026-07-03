@@ -1,7 +1,9 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
+import cv2
 import numpy as np
 import torch
 
@@ -12,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from core.super_resolution import SuperResolutionConfig, SuperResolutionEngine
 from models.transformer.sr_transformer import SRTransformer
+from training.data import SRFramePairDataset
 
 
 class SuperResolutionTests(unittest.TestCase):
@@ -42,6 +45,28 @@ class SuperResolutionTests(unittest.TestCase):
         )
         output = engine.upscale_frame(frame, target_resolution=(40, 30))
         self.assertEqual(output.shape, (30, 40, 3))
+
+    def test_480p_to_1440p_alignment(self):
+        frame = np.zeros((480, 854, 3), dtype=np.uint8)
+        engine = SuperResolutionEngine(
+            SuperResolutionConfig(backend="bilinear", scale_factor=3, device="cpu")
+        )
+        output = engine.upscale_frame(frame, target_resolution=(2560, 1440))
+        self.assertEqual(output.shape, (1440, 2560, 3))
+
+    def test_dataset_pairs_by_stem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lr_dir = root / "train" / "lr"
+            hr_dir = root / "train" / "hr"
+            lr_dir.mkdir(parents=True)
+            hr_dir.mkdir(parents=True)
+            cv2.imwrite(str(lr_dir / "sample.png"), np.zeros((8, 8, 3), dtype=np.uint8))
+            cv2.imwrite(str(hr_dir / "sample.png"), np.zeros((24, 24, 3), dtype=np.uint8))
+            dataset = SRFramePairDataset(root, split="train", scale=3)
+            item = dataset[0]
+            self.assertEqual(item["lr"].shape, (3, 8, 8))
+            self.assertEqual(item["hr"].shape, (3, 24, 24))
 
 
 if __name__ == "__main__":

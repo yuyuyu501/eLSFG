@@ -13,6 +13,8 @@ docs/rendered_*/
 *.pdf
 history_*.md
 scripts/build_*_plan_doc.py
+plan.md
+module_design.md
 
 .idea/
 .vscode/

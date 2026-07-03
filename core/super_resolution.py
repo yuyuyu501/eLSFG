@@ -24,6 +24,11 @@ class SuperResolutionConfig:
     tile_overlap: int = 16
     quality: str = "balanced"
     warmup_size: Resolution = (128, 128)
+    model_dim: int = 48
+    model_depth: int = 4
+    model_heads: int = 4
+    model_window_size: int = 8
+    residual_scale: float = 0.1
 
 
 @dataclass
@@ -75,7 +80,14 @@ class SuperResolutionEngine:
 
         from models.transformer.sr_transformer import SRTransformer
 
-        self.model = SRTransformer(scale_factor=self.config.scale_factor).to(self.device)
+        self.model = SRTransformer(
+            dim=self.config.model_dim,
+            depth=self.config.model_depth,
+            num_heads=self.config.model_heads,
+            scale_factor=self.config.scale_factor,
+            window_size=self.config.model_window_size,
+            residual_scale=self.config.residual_scale,
+        ).to(self.device)
         if self.config.model_path:
             checkpoint_path = Path(self.config.model_path)
             if not checkpoint_path.exists():
@@ -130,7 +142,7 @@ class SuperResolutionEngine:
             result = self._postprocess(output)
 
         if result.shape[1] != target_resolution[0] or result.shape[0] != target_resolution[1]:
-            result = self._resize_numpy(result, target_resolution)
+            result = self._align_numpy(result, target_resolution)
 
         if self.device.type == "cuda":
             torch.cuda.synchronize()
@@ -234,6 +246,17 @@ class SuperResolutionEngine:
             )
         return self._postprocess(resized)
 
+    def _align_numpy(self, frame: np.ndarray, target_resolution: Resolution) -> np.ndarray:
+        target_width, target_height = target_resolution
+        height, width = frame.shape[:2]
+        if width >= target_width and height >= target_height:
+            left = (width - target_width) // 2
+            top = (height - target_height) // 2
+            return np.ascontiguousarray(
+                frame[top : top + target_height, left : left + target_width]
+            )
+        return self._resize_numpy(frame, target_resolution)
+
 
 class SuperResolution(SuperResolutionEngine):
     """Backward-compatible wrapper for existing pipeline code."""
@@ -247,6 +270,10 @@ class SuperResolution(SuperResolutionEngine):
         backend: str = "auto",
         tile_size: int = 0,
         tile_overlap: int = 16,
+        model_dim: int = 48,
+        model_depth: int = 4,
+        model_heads: int = 4,
+        model_window_size: int = 8,
     ):
         super().__init__(
             SuperResolutionConfig(
@@ -257,5 +284,9 @@ class SuperResolution(SuperResolutionEngine):
                 half_precision=half_precision,
                 tile_size=tile_size,
                 tile_overlap=tile_overlap,
+                model_dim=model_dim,
+                model_depth=model_depth,
+                model_heads=model_heads,
+                model_window_size=model_window_size,
             )
         )
