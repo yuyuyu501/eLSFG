@@ -16,6 +16,21 @@ def iter_sources(input_path: Path) -> list[Path]:
     return sorted(path for path in input_path.rglob("*") if path.is_file())
 
 
+def center_crop_aspect(frame, aspect_width: int, aspect_height: int):
+    height, width = frame.shape[:2]
+    target_ratio = aspect_width / aspect_height
+    current_ratio = width / height
+    if current_ratio > target_ratio:
+        new_width = int(height * target_ratio)
+        left = (width - new_width) // 2
+        return frame[:, left : left + new_width]
+    if current_ratio < target_ratio:
+        new_height = int(width / target_ratio)
+        top = (height - new_height) // 2
+        return frame[top : top + new_height, :]
+    return frame
+
+
 def resize_frame(frame, width: int, height: int):
     return cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
@@ -23,6 +38,7 @@ def resize_frame(frame, width: int, height: int):
 def write_pair(frame, output_root: Path, split: str, stem: str, hr_size, lr_size) -> None:
     hr_width, hr_height = hr_size
     lr_width, lr_height = lr_size
+    frame = center_crop_aspect(frame, hr_width, hr_height)
     hr = resize_frame(frame, hr_width, hr_height)
     lr = resize_frame(hr, lr_width, lr_height)
     hr_path = output_root / split / "hr" / f"{stem}.png"
@@ -37,7 +53,7 @@ def process_image(path: Path, output_root: Path, args, index: int) -> int:
     frame = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if frame is None:
         return index
-    split = "val" if index % args.val_every == 0 else "train"
+    split = resolve_split(args, index)
     write_pair(
         frame,
         output_root,
@@ -57,7 +73,7 @@ def process_video(path: Path, output_root: Path, args, index: int) -> int:
         if not ok:
             break
         if frame_index % args.frame_step == 0:
-            split = "val" if index % args.val_every == 0 else "train"
+            split = resolve_split(args, index)
             write_pair(
                 frame,
                 output_root,
@@ -72,6 +88,12 @@ def process_video(path: Path, output_root: Path, args, index: int) -> int:
     return index
 
 
+def resolve_split(args, index: int) -> str:
+    if args.split != "auto":
+        return args.split
+    return "val" if index % args.val_every == 0 else "train"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare paired LR/HR SR frames.")
     parser.add_argument("--input", required=True, type=Path)
@@ -82,6 +104,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-height", type=int, default=480)
     parser.add_argument("--frame-step", type=int, default=1)
     parser.add_argument("--val-every", type=int, default=20)
+    parser.add_argument("--split", choices=["auto", "train", "val"], default="auto")
     return parser.parse_args()
 
 

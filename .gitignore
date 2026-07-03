@@ -7,6 +7,7 @@ env/
 .env
 
 .tmp_pdf_render/
+datas/
 docx_rendered/
 docs/rendered_*/
 *.docx
