@@ -3,7 +3,12 @@
 #   python -m pip install -r requirements.txt
 #
 # PyTorch 2.6.0 CUDA 12.4 wheels are hosted on the PyTorch index.
+# Use Tsinghua PyPI as the primary index to avoid files.pythonhosted.org
+# certificate/proxy issues on the Linux training host.
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple
 --extra-index-url https://download.pytorch.org/whl/cu124
+--trusted-host pypi.tuna.tsinghua.edu.cn
+--trusted-host download.pytorch.org
 
 # Core inference/runtime
 numpy>=1.24
