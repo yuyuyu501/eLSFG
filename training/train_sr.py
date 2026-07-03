@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -10,6 +11,10 @@ import torch.distributed as dist
 from torch.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from models.transformer.sr_transformer import build_sr_model
 from training.checkpoint import load_checkpoint, save_checkpoint
