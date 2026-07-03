@@ -1,0 +1,21 @@
+# Install inside the project conda env, not base:
+#   conda activate elsfg
+#   python -m pip install -r requirements.txt
+#
+# PyTorch 2.6.0 CUDA 12.4 wheels are hosted on the PyTorch index.
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+# Core inference/runtime
+numpy>=1.24
+torch==2.6.0+cu124; platform_system == "Windows"
+torchvision==0.21.0+cu124; platform_system == "Windows"
+torchaudio==2.6.0+cu124; platform_system == "Windows"
+opencv-python>=4.8,<5
+
+# Desktop app UI
+PySide6>=6.6
+
+# Windows capture backends
+pywin32>=306; platform_system == "Windows"
+mss>=9.0
+dxcam>=0.0.5; platform_system == "Windows"

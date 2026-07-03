@@ -1,0 +1,15 @@
+{
+  "name": "Default",
+  "backend": "bicubic",
+  "scale_factor": 2,
+  "target_width": 2560,
+  "target_height": 1440,
+  "quality": "balanced",
+  "model_path": "",
+  "tile_size": 0,
+  "tile_overlap": 16,
+  "half_precision": true,
+  "capture_api": "debug-preview",
+  "hotkey": "Alt+S",
+  "always_on_top": false
+}
