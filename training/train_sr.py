@@ -11,7 +11,7 @@ from torch.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 
-from models.transformer.sr_transformer import SRTransformer
+from models.transformer.sr_transformer import build_sr_model
 from training.checkpoint import load_checkpoint, save_checkpoint
 from training.data import SRFramePairDataset, collate_sr_batch
 from training.losses import CombinedSRLoss, SRLossConfig
@@ -20,6 +20,7 @@ from training.metrics import crop_or_resize_to_match, psnr
 
 @dataclass
 class ModelConfig:
+    variant: str = "baseline"
     scale_factor: int = 3
     dim: int = 48
     depth: int = 4
@@ -38,6 +39,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--patch-size", type=int, default=192)
     parser.add_argument("--scale", type=int, default=3)
+    parser.add_argument(
+        "--variant",
+        default="baseline",
+        choices=["baseline", "hybrid", "shared_attention", "detail_aware"],
+    )
     parser.add_argument("--dim", type=int, default=48)
     parser.add_argument("--depth", type=int, default=4)
     parser.add_argument("--heads", type=int, default=4)
@@ -109,13 +115,15 @@ def main() -> int:
     amp_enabled = (not args.no_amp) and device.type == "cuda"
 
     model_config = ModelConfig(
+        variant=args.variant,
         scale_factor=args.scale,
         dim=args.dim,
         depth=args.depth,
         num_heads=args.heads,
         window_size=args.window_size,
     )
-    model = SRTransformer(
+    model = build_sr_model(
+        variant=model_config.variant,
         dim=model_config.dim,
         depth=model_config.depth,
         num_heads=model_config.num_heads,

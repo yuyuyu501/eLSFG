@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.super_resolution import SuperResolutionConfig, SuperResolutionEngine
-from models.transformer.sr_transformer import SRTransformer
+from models.transformer.sr_transformer import SRTransformer, build_sr_model
 from training.data import SRFramePairDataset
 
 
@@ -25,6 +25,22 @@ class SuperResolutionTests(unittest.TestCase):
         with torch.inference_mode():
             y = model(x)
         self.assertEqual(tuple(y.shape), (1, 3, 30, 34))
+
+    def test_all_model_variants_respect_scale(self):
+        x = torch.rand(1, 3, 16, 16)
+        for variant in ["baseline", "hybrid", "shared_attention", "detail_aware"]:
+            model = build_sr_model(
+                variant=variant,
+                dim=12,
+                depth=1,
+                num_heads=3,
+                scale_factor=3,
+                window_size=8,
+            )
+            model.eval()
+            with torch.inference_mode():
+                y = model(x)
+            self.assertEqual(tuple(y.shape), (1, 3, 48, 48), variant)
 
     def test_engine_bicubic_fallback_without_model(self):
         frame = np.zeros((17, 19, 3), dtype=np.uint8)
@@ -53,6 +69,24 @@ class SuperResolutionTests(unittest.TestCase):
         )
         output = engine.upscale_frame(frame, target_resolution=(2560, 1440))
         self.assertEqual(output.shape, (1440, 2560, 3))
+
+    def test_engine_loads_model_variant(self):
+        frame = np.zeros((16, 16, 3), dtype=np.uint8)
+        engine = SuperResolutionEngine(
+            SuperResolutionConfig(
+                backend="sr_transformer",
+                scale_factor=3,
+                device="cpu",
+                half_precision=False,
+                model_variant="hybrid",
+                model_dim=12,
+                model_depth=1,
+                model_heads=3,
+                model_window_size=8,
+            )
+        )
+        output = engine.upscale_frame(frame, target_resolution=(48, 48))
+        self.assertEqual(output.shape, (48, 48, 3))
 
     def test_dataset_pairs_by_stem(self):
         with tempfile.TemporaryDirectory() as tmp:

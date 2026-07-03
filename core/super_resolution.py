@@ -29,6 +29,7 @@ class SuperResolutionConfig:
     model_heads: int = 4
     model_window_size: int = 8
     residual_scale: float = 0.1
+    model_variant: str = "baseline"
 
 
 @dataclass
@@ -78,9 +79,10 @@ class SuperResolutionEngine:
         if self.backend != "sr_transformer":
             raise ValueError(f"Unsupported super-resolution backend: {self.backend}")
 
-        from models.transformer.sr_transformer import SRTransformer
+        from models.transformer.sr_transformer import build_sr_model
 
-        self.model = SRTransformer(
+        self.model = build_sr_model(
+            variant=self.config.model_variant,
             dim=self.config.model_dim,
             depth=self.config.model_depth,
             num_heads=self.config.model_heads,
@@ -274,6 +276,7 @@ class SuperResolution(SuperResolutionEngine):
         model_depth: int = 4,
         model_heads: int = 4,
         model_window_size: int = 8,
+        model_variant: str = "baseline",
     ):
         super().__init__(
             SuperResolutionConfig(
@@ -288,5 +291,6 @@ class SuperResolution(SuperResolutionEngine):
                 model_depth=model_depth,
                 model_heads=model_heads,
                 model_window_size=model_window_size,
+                model_variant=model_variant,
             )
         )

@@ -15,6 +15,7 @@ history_*.md
 scripts/build_*_plan_doc.py
 plan.md
 module_design.md
+model_optimization.md
 
 .idea/
 .vscode/
