@@ -7,9 +7,9 @@
 
 # Core inference/runtime
 numpy>=1.24
-torch==2.6.0+cu124; platform_system == "Windows"
-torchvision==0.21.0+cu124; platform_system == "Windows"
-torchaudio==2.6.0+cu124; platform_system == "Windows"
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+torchaudio==2.6.0+cu124
 opencv-python>=4.8,<5
 
 # Desktop app UI
