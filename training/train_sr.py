@@ -56,6 +56,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--edge-weight", type=float, default=0.05)
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--save-every", type=int, default=1)
+    parser.add_argument("--val-every", type=int, default=1)
+    parser.add_argument("--channels-last", action="store_true")
     parser.add_argument("--no-amp", action="store_true")
     return parser.parse_args()
 
@@ -85,32 +87,47 @@ def build_loader(args, split: str, distributed: bool, shuffle: bool) -> tuple[Da
         random_crop=split == "train",
     )
     sampler = DistributedSampler(dataset, shuffle=shuffle) if distributed else None
-    loader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=shuffle and sampler is None,
-        sampler=sampler,
-        num_workers=args.num_workers,
-        pin_memory=True,
-        collate_fn=collate_sr_batch,
-        drop_last=split == "train",
-    )
+    loader_kwargs = {
+        "batch_size": args.batch_size,
+        "shuffle": shuffle and sampler is None,
+        "sampler": sampler,
+        "num_workers": args.num_workers,
+        "pin_memory": True,
+        "collate_fn": collate_sr_batch,
+        "drop_last": split == "train",
+    }
+    if args.num_workers > 0:
+        loader_kwargs["persistent_workers"] = True
+        loader_kwargs["prefetch_factor"] = 4
+    loader = DataLoader(dataset, **loader_kwargs)
     return loader, sampler
 
 
 @torch.no_grad()
-def validate(model, loader, device, amp_enabled: bool) -> float:
+def validate(model, loader, device, amp_enabled: bool, channels_last: bool) -> tuple[float, int]:
     model.eval()
-    scores = []
+    score_sum = 0.0
+    count = 0
     for batch in loader:
         lr = batch["lr"].to(device, non_blocking=True)
         hr = batch["hr"].to(device, non_blocking=True)
+        if channels_last:
+            lr = lr.contiguous(memory_format=torch.channels_last)
+            hr = hr.contiguous(memory_format=torch.channels_last)
         with autocast(device_type="cuda", enabled=amp_enabled):
             pred = model(lr)
             pred = crop_or_resize_to_match(pred, hr)
-        scores.append(psnr(pred.float(), hr.float()))
+        score_sum += psnr(pred.float(), hr.float())
+        count += 1
     model.train()
-    return sum(scores) / max(1, len(scores))
+    return score_sum, count
+
+
+def distributed_average(total: float, count: int, device, distributed: bool) -> float:
+    stats = torch.tensor([total, float(count)], device=device, dtype=torch.float64)
+    if distributed:
+        dist.all_reduce(stats, op=dist.ReduceOp.SUM)
+    return float(stats[0].item() / max(1.0, stats[1].item()))
 
 
 def main() -> int:
@@ -118,6 +135,9 @@ def main() -> int:
     distributed, rank, local_rank, _ = setup_distributed()
     device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
     amp_enabled = (not args.no_amp) and device.type == "cuda"
+    channels_last = args.channels_last and device.type == "cuda"
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
 
     model_config = ModelConfig(
         variant=args.variant,
@@ -136,6 +156,8 @@ def main() -> int:
         window_size=model_config.window_size,
         residual_scale=model_config.residual_scale,
     ).to(device)
+    if channels_last:
+        model = model.to(memory_format=torch.channels_last)
     if distributed:
         model = DistributedDataParallel(model, device_ids=[local_rank])
 
@@ -159,9 +181,13 @@ def main() -> int:
             train_sampler.set_epoch(epoch)
         model.train()
         running_loss = 0.0
+        running_count = 0
         for batch in train_loader:
             lr = batch["lr"].to(device, non_blocking=True)
             hr = batch["hr"].to(device, non_blocking=True)
+            if channels_last:
+                lr = lr.contiguous(memory_format=torch.channels_last)
+                hr = hr.contiguous(memory_format=torch.channels_last)
             optimizer.zero_grad(set_to_none=True)
             with autocast(device_type="cuda", enabled=amp_enabled):
                 pred = model(lr)
@@ -171,11 +197,18 @@ def main() -> int:
             scaler.step(optimizer)
             scaler.update()
             running_loss += float(losses["loss"].detach().cpu())
+            running_count += 1
             step += 1
 
+        avg_loss = distributed_average(running_loss, running_count, device, distributed)
+        should_validate = args.val_every > 0 and (
+            epoch % args.val_every == 0 or epoch == args.epochs - 1
+        )
+        val_psnr = 0.0
+        if should_validate:
+            val_sum, val_count = validate(model, val_loader, device, amp_enabled, channels_last)
+            val_psnr = distributed_average(val_sum, val_count, device, distributed)
         if rank == 0:
-            val_psnr = validate(model, val_loader, device, amp_enabled)
-            avg_loss = running_loss / max(1, len(train_loader))
             print(
                 f"epoch={epoch} step={step} loss={avg_loss:.6f} val_psnr={val_psnr:.3f}",
                 flush=True,
@@ -191,6 +224,8 @@ def main() -> int:
                     model_config=asdict(model_config),
                     metrics={"loss": avg_loss, "val_psnr": val_psnr},
                 )
+        if distributed:
+            dist.barrier()
 
     cleanup_distributed(distributed)
     return 0
