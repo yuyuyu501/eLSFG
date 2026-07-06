@@ -22,6 +22,24 @@ def crop_padding(x: torch.Tensor, pad_h: int, pad_w: int) -> torch.Tensor:
     return x
 
 
+def base_upsample(x: torch.Tensor, scale_factor: int) -> torch.Tensor:
+    return F.interpolate(
+        x,
+        scale_factor=scale_factor,
+        mode="bicubic",
+        align_corners=False,
+    )
+
+
+def zero_init_last_conv(module: nn.Module) -> None:
+    for child in reversed(list(module.modules())):
+        if isinstance(child, nn.Conv2d):
+            nn.init.zeros_(child.weight)
+            if child.bias is not None:
+                nn.init.zeros_(child.bias)
+            return
+
+
 class WindowAttention(nn.Module):
     """Local window attention for image features."""
 
@@ -188,6 +206,7 @@ class PixelShuffleUpsampler(nn.Module):
             )
         else:
             raise ValueError("scale_factor must be one of 1, 2, 3, or 4")
+        zero_init_last_conv(self.net)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
@@ -242,12 +261,7 @@ class SRTransformer(nn.Module):
         return pad_to_window(x, self.window_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = F.interpolate(
-            x,
-            scale_factor=self.scale_factor,
-            mode="bilinear",
-            align_corners=False,
-        )
+        base = base_upsample(x, self.scale_factor)
 
         feat = self.input_proj(x)
         feat, pad_h, pad_w = self._pad_to_window(feat)
@@ -291,12 +305,7 @@ class HybridSRTransformer(nn.Module):
         self.window_size = window_size
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = F.interpolate(
-            x,
-            scale_factor=self.scale_factor,
-            mode="bilinear",
-            align_corners=False,
-        )
+        base = base_upsample(x, self.scale_factor)
         feat = self.input_proj(x)
         feat, pad_h, pad_w = pad_to_window(feat, self.window_size)
         feat = crop_padding(self.blocks(feat), pad_h, pad_w)
@@ -343,12 +352,7 @@ class AttentionSharingSRTransformer(nn.Module):
         return pad_to_window(x, self.window_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = F.interpolate(
-            x,
-            scale_factor=self.scale_factor,
-            mode="bilinear",
-            align_corners=False,
-        )
+        base = base_upsample(x, self.scale_factor)
         feat = self.input_proj(x)
         feat, pad_h, pad_w = self._pad_to_window(feat)
         for group in self.groups:
@@ -393,12 +397,7 @@ class DetailAwareSRTransformer(nn.Module):
         self.upscale = PixelShuffleUpsampler(dim, scale_factor)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = F.interpolate(
-            x,
-            scale_factor=self.scale_factor,
-            mode="bilinear",
-            align_corners=False,
-        )
+        base = base_upsample(x, self.scale_factor)
         feat = self.blocks(self.input_proj(x))
         residual = self.upscale(self.reconstruct(feat))
         return (base + residual * self.residual_scale).clamp(0.0, 1.0)

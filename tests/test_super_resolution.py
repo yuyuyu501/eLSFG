@@ -6,6 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,27 @@ class SuperResolutionTests(unittest.TestCase):
             with torch.inference_mode():
                 y = model(x)
             self.assertEqual(tuple(y.shape), (1, 3, 48, 48), variant)
+
+    def test_new_model_starts_from_bicubic_base(self):
+        x = torch.rand(1, 3, 16, 16)
+        model = build_sr_model(
+            variant="detail_aware",
+            dim=12,
+            depth=1,
+            num_heads=3,
+            scale_factor=3,
+            window_size=8,
+        )
+        model.eval()
+        with torch.inference_mode():
+            y = model(x)
+            expected = F.interpolate(
+                x,
+                scale_factor=3,
+                mode="bicubic",
+                align_corners=False,
+            ).clamp(0.0, 1.0)
+        self.assertTrue(torch.allclose(y, expected, atol=1e-6))
 
     def test_engine_bicubic_fallback_without_model(self):
         frame = np.zeros((17, 19, 3), dtype=np.uint8)
