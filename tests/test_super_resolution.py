@@ -43,7 +43,7 @@ class SuperResolutionTests(unittest.TestCase):
                 y = model(x)
             self.assertEqual(tuple(y.shape), (1, 3, 48, 48), variant)
 
-    def test_new_model_starts_from_bilinear_base(self):
+    def test_new_model_starts_from_bicubic_base(self):
         x = torch.rand(1, 3, 16, 16)
         model = build_sr_model(
             variant="detail_aware",
@@ -59,7 +59,7 @@ class SuperResolutionTests(unittest.TestCase):
             expected = F.interpolate(
                 x,
                 scale_factor=3,
-                mode="bilinear",
+                mode="bicubic",
                 align_corners=False,
             ).clamp(0.0, 1.0)
         self.assertTrue(torch.allclose(y, expected, atol=1e-6))
