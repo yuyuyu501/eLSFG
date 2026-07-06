@@ -46,13 +46,21 @@ class SobelEdgeLoss(nn.Module):
 class SRLossConfig:
     reconstruction_weight: float = 1.0
     edge_weight: float = 0.05
+    reconstruction: str = "charbonnier"
 
 
 class CombinedSRLoss(nn.Module):
     def __init__(self, config: SRLossConfig | None = None):
         super().__init__()
         self.config = config or SRLossConfig()
-        self.reconstruction = CharbonnierLoss()
+        if self.config.reconstruction == "mse":
+            self.reconstruction = nn.MSELoss()
+        elif self.config.reconstruction == "l1":
+            self.reconstruction = nn.L1Loss()
+        elif self.config.reconstruction == "charbonnier":
+            self.reconstruction = CharbonnierLoss()
+        else:
+            raise ValueError(f"Unknown reconstruction loss: {self.config.reconstruction}")
         self.edge = SobelEdgeLoss()
 
     def forward(self, prediction: torch.Tensor, target: torch.Tensor) -> dict[str, torch.Tensor]:

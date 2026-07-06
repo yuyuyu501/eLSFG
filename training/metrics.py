@@ -25,10 +25,9 @@ def crop_or_resize_to_match(
 def psnr(prediction: torch.Tensor, target: torch.Tensor, eps: float = 1e-10) -> float:
     prediction = crop_or_resize_to_match(prediction, target).clamp(0.0, 1.0)
     target = target.clamp(0.0, 1.0)
-    mse = F.mse_loss(prediction, target).item()
-    if mse <= eps:
-        return float("inf")
-    return 10.0 * math.log10(1.0 / mse)
+    mse = (prediction - target).square().flatten(1).mean(dim=1)
+    scores = 10.0 * torch.log10(1.0 / mse.clamp_min(eps))
+    return float(scores.mean().item())
 
 
 def tensor_vram_mb(device: torch.device | str = "cuda") -> float:

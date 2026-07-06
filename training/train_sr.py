@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-size", type=int, default=8)
     parser.add_argument("--residual-scale", type=float, default=0.1)
     parser.add_argument("--edge-weight", type=float, default=0.05)
+    parser.add_argument(
+        "--loss",
+        default="charbonnier",
+        choices=["charbonnier", "l1", "mse"],
+    )
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--save-every", type=int, default=1)
     parser.add_argument("--val-every", type=int, default=1)
@@ -165,7 +170,9 @@ def main() -> int:
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     scaler = GradScaler("cuda", enabled=amp_enabled)
-    criterion = CombinedSRLoss(SRLossConfig(edge_weight=args.edge_weight)).to(device)
+    criterion = CombinedSRLoss(
+        SRLossConfig(edge_weight=args.edge_weight, reconstruction=args.loss)
+    ).to(device)
     start_epoch = 0
     step = 0
     best_val_psnr = float("-inf")
