@@ -57,3 +57,14 @@ python scripts/benchmark_sr_tensor.py \
 ```
 
 The target is at least 120 FPS with less than 4096 MB peak VRAM.
+
+Current RTX 2080 Ti tensor-only result for the packaged `AI Quality` model:
+
+```text
+avg_ms: 7.924
+fps: 126.19
+peak_vram_mb: 200.7
+```
+
+The desktop preview path still performs CPU readback and Qt image display, so it
+is for functional inspection rather than final 120 FPS real-time presentation.
