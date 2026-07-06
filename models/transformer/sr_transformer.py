@@ -26,7 +26,7 @@ def base_upsample(x: torch.Tensor, scale_factor: int) -> torch.Tensor:
     return F.interpolate(
         x,
         scale_factor=scale_factor,
-        mode="bicubic",
+        mode="bilinear",
         align_corners=False,
     )
 
