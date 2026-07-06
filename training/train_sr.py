@@ -53,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth", type=int, default=4)
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--window-size", type=int, default=8)
+    parser.add_argument("--residual-scale", type=float, default=0.1)
     parser.add_argument("--edge-weight", type=float, default=0.05)
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--save-every", type=int, default=1)
@@ -146,6 +147,7 @@ def main() -> int:
         depth=args.depth,
         num_heads=args.heads,
         window_size=args.window_size,
+        residual_scale=args.residual_scale,
     )
     model = build_sr_model(
         variant=model_config.variant,
