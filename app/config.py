@@ -77,8 +77,8 @@ class ProfileStore:
                 model_path="checkpoints/elsfg_sr_detail_aware.pt",
                 tile_size=0,
                 model_variant="detail_aware",
-                model_dim=12,
+                model_dim=8,
                 model_depth=1,
-                model_heads=3,
+                model_heads=2,
             ),
         ]

@@ -44,9 +44,9 @@ On the RTX 2080 Ti machine, run the tensor benchmark:
 ```bash
 python scripts/benchmark_sr_tensor.py \
   --variant detail_aware \
-  --model-dim 12 \
+  --model-dim 8 \
   --model-depth 1 \
-  --model-heads 3 \
+  --model-heads 2 \
   --width 854 \
   --height 480 \
   --target-width 2560 \
