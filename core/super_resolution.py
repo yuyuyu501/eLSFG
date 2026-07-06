@@ -274,12 +274,8 @@ class SuperResolutionEngine:
     def _align_numpy(self, frame: np.ndarray, target_resolution: Resolution) -> np.ndarray:
         target_width, target_height = target_resolution
         height, width = frame.shape[:2]
-        if width >= target_width and height >= target_height:
-            left = (width - target_width) // 2
-            top = (height - target_height) // 2
-            return np.ascontiguousarray(
-                frame[top : top + target_height, left : left + target_width]
-            )
+        if width == target_width and height == target_height:
+            return np.ascontiguousarray(frame)
         return self._resize_numpy(frame, target_resolution)
 
 

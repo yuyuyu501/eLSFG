@@ -18,10 +18,8 @@ from models.transformer.sr_transformer import build_sr_model
 
 def align_tensor(output: torch.Tensor, target_height: int, target_width: int) -> torch.Tensor:
     _, _, height, width = output.shape
-    if height >= target_height and width >= target_width:
-        top = (height - target_height) // 2
-        left = (width - target_width) // 2
-        return output[:, :, top : top + target_height, left : left + target_width]
+    if height == target_height and width == target_width:
+        return output
     return F.interpolate(
         output,
         size=(target_height, target_width),

@@ -12,10 +12,8 @@ def crop_or_resize_to_match(
 ) -> torch.Tensor:
     _, _, target_h, target_w = target.shape
     _, _, pred_h, pred_w = prediction.shape
-    if pred_h >= target_h and pred_w >= target_w:
-        top = (pred_h - target_h) // 2
-        left = (pred_w - target_w) // 2
-        return prediction[:, :, top : top + target_h, left : left + target_w]
+    if pred_h == target_h and pred_w == target_w:
+        return prediction
     return F.interpolate(
         prediction,
         size=(target_h, target_w),
