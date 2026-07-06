@@ -9,6 +9,7 @@ env/
 .tmp_pdf_render/
 datas/
 runs/
+dist/
 docx_rendered/
 docs/rendered_*/
 *.docx

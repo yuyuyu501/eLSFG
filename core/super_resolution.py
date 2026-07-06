@@ -81,20 +81,43 @@ class SuperResolutionEngine:
 
         from models.transformer.sr_transformer import build_sr_model
 
-        self.model = build_sr_model(
-            variant=self.config.model_variant,
-            dim=self.config.model_dim,
-            depth=self.config.model_depth,
-            num_heads=self.config.model_heads,
-            scale_factor=self.config.scale_factor,
-            window_size=self.config.model_window_size,
-            residual_scale=self.config.residual_scale,
-        ).to(self.device)
+        checkpoint = None
+        checkpoint_path = None
+        checkpoint_config = {}
         if self.config.model_path:
             checkpoint_path = Path(self.config.model_path)
             if not checkpoint_path.exists():
                 raise FileNotFoundError(f"SR model not found: {checkpoint_path}")
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            if isinstance(checkpoint, dict):
+                checkpoint_config = checkpoint.get("model_config") or {}
+
+        variant = checkpoint_config.get("variant", self.config.model_variant)
+        dim = int(checkpoint_config.get("dim", self.config.model_dim))
+        depth = int(checkpoint_config.get("depth", self.config.model_depth))
+        num_heads = int(
+            checkpoint_config.get(
+                "num_heads",
+                checkpoint_config.get("model_heads", self.config.model_heads),
+            )
+        )
+        scale_factor = int(checkpoint_config.get("scale_factor", self.config.scale_factor))
+        window_size = int(checkpoint_config.get("window_size", self.config.model_window_size))
+        residual_scale = float(
+            checkpoint_config.get("residual_scale", self.config.residual_scale)
+        )
+        self.config.scale_factor = scale_factor
+
+        self.model = build_sr_model(
+            variant=variant,
+            dim=dim,
+            depth=depth,
+            num_heads=num_heads,
+            scale_factor=scale_factor,
+            window_size=window_size,
+            residual_scale=residual_scale,
+        ).to(self.device)
+        if checkpoint is not None:
             state_dict = checkpoint.get("model") or checkpoint.get("state_dict") or checkpoint
             self.model.load_state_dict(state_dict, strict=False)
 

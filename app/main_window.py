@@ -267,6 +267,7 @@ class MainWindow(QMainWindow):
     def _profile_from_fields(self) -> AppProfile:
         row = self.profile_list.currentRow()
         name = self.profiles[row].name if 0 <= row < len(self.profiles) else "Default"
+        current = self.profiles[row] if 0 <= row < len(self.profiles) else AppProfile()
         model_path = self.model_path_label.text()
         if model_path == "No model selected":
             model_path = ""
@@ -284,6 +285,11 @@ class MainWindow(QMainWindow):
             capture_api=self.capture_api_combo.currentText(),
             hotkey=self.hotkey_label.text(),
             always_on_top=self.always_on_top_check.isChecked(),
+            model_variant=current.model_variant,
+            model_dim=current.model_dim,
+            model_depth=current.model_depth,
+            model_heads=current.model_heads,
+            model_window_size=current.model_window_size,
         )
 
     def _save_current_profile(self) -> None:
@@ -332,6 +338,11 @@ class MainWindow(QMainWindow):
                 tile_size=profile.tile_size,
                 tile_overlap=profile.tile_overlap,
                 quality=profile.quality,
+                model_variant=profile.model_variant,
+                model_dim=profile.model_dim,
+                model_depth=profile.model_depth,
+                model_heads=profile.model_heads,
+                model_window_size=profile.model_window_size,
             )
             started = time.perf_counter()
             self.engine = SuperResolutionEngine(config)

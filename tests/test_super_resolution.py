@@ -88,6 +88,45 @@ class SuperResolutionTests(unittest.TestCase):
         output = engine.upscale_frame(frame, target_resolution=(48, 48))
         self.assertEqual(output.shape, (48, 48, 3))
 
+    def test_engine_uses_checkpoint_model_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_path = Path(tmp) / "detail_aware.pt"
+            model = build_sr_model(
+                variant="detail_aware",
+                dim=12,
+                depth=1,
+                num_heads=3,
+                scale_factor=3,
+                window_size=8,
+            )
+            torch.save(
+                {
+                    "model": model.state_dict(),
+                    "model_config": {
+                        "variant": "detail_aware",
+                        "scale_factor": 3,
+                        "dim": 12,
+                        "depth": 1,
+                        "num_heads": 3,
+                        "window_size": 8,
+                        "residual_scale": 0.1,
+                    },
+                },
+                checkpoint_path,
+            )
+            frame = np.zeros((16, 16, 3), dtype=np.uint8)
+            engine = SuperResolutionEngine(
+                SuperResolutionConfig(
+                    backend="sr_transformer",
+                    model_path=str(checkpoint_path),
+                    scale_factor=2,
+                    device="cpu",
+                    half_precision=False,
+                )
+            )
+            output = engine.upscale_frame(frame)
+            self.assertEqual(output.shape, (48, 48, 3))
+
     def test_dataset_pairs_by_stem(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

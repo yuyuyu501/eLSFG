@@ -25,6 +25,11 @@ class AppProfile:
     capture_api: str = "debug-preview"
     hotkey: str = "Alt+S"
     always_on_top: bool = False
+    model_variant: str = "baseline"
+    model_dim: int = 48
+    model_depth: int = 4
+    model_heads: int = 4
+    model_window_size: int = 8
 
     @property
     def filename(self) -> str:
@@ -64,5 +69,16 @@ class ProfileStore:
         return [
             AppProfile(name="Default", backend="bicubic", scale_factor=2),
             AppProfile(name="Game Fast", backend="bilinear", scale_factor=2, quality="fast"),
-            AppProfile(name="AI Quality", backend="sr_transformer", scale_factor=2, quality="quality", tile_size=384),
+            AppProfile(
+                name="AI Quality",
+                backend="sr_transformer",
+                scale_factor=3,
+                quality="quality",
+                model_path="checkpoints/elsfg_sr_detail_aware.pt",
+                tile_size=0,
+                model_variant="detail_aware",
+                model_dim=12,
+                model_depth=1,
+                model_heads=3,
+            ),
         ]

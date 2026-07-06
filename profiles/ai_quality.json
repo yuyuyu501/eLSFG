@@ -1,0 +1,20 @@
+{
+  "name": "AI Quality",
+  "backend": "sr_transformer",
+  "scale_factor": 3,
+  "target_width": 2560,
+  "target_height": 1440,
+  "quality": "quality",
+  "model_path": "checkpoints/elsfg_sr_detail_aware.pt",
+  "tile_size": 0,
+  "tile_overlap": 16,
+  "half_precision": true,
+  "capture_api": "debug-preview",
+  "hotkey": "Alt+S",
+  "always_on_top": false,
+  "model_variant": "detail_aware",
+  "model_dim": 12,
+  "model_depth": 1,
+  "model_heads": 3,
+  "model_window_size": 8
+}

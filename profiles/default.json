@@ -11,5 +11,10 @@
   "half_precision": true,
   "capture_api": "debug-preview",
   "hotkey": "Alt+S",
-  "always_on_top": false
+  "always_on_top": false,
+  "model_variant": "baseline",
+  "model_dim": 48,
+  "model_depth": 4,
+  "model_heads": 4,
+  "model_window_size": 8
 }
