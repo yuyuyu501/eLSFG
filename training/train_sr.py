@@ -166,11 +166,16 @@ def main() -> int:
     criterion = CombinedSRLoss(SRLossConfig(edge_weight=args.edge_weight)).to(device)
     start_epoch = 0
     step = 0
+    best_val_psnr = float("-inf")
+    last_val_psnr = 0.0
 
     if args.resume:
         checkpoint = load_checkpoint(args.resume, model, optimizer, scaler, map_location=device)
         start_epoch = int(checkpoint.get("epoch", 0)) + 1
         step = int(checkpoint.get("step", 0))
+        metrics = checkpoint.get("metrics", {})
+        best_val_psnr = float(metrics.get("best_val_psnr", metrics.get("val_psnr", best_val_psnr)))
+        last_val_psnr = float(metrics.get("val_psnr", last_val_psnr))
 
     train_loader, train_sampler = build_loader(args, "train", distributed, shuffle=True)
     val_loader, _ = build_loader(args, "val", distributed, shuffle=False)
@@ -204,17 +209,22 @@ def main() -> int:
         should_validate = args.val_every > 0 and (
             epoch % args.val_every == 0 or epoch == args.epochs - 1
         )
-        val_psnr = 0.0
         if should_validate:
             val_sum, val_count = validate(model, val_loader, device, amp_enabled, channels_last)
-            val_psnr = distributed_average(val_sum, val_count, device, distributed)
+            last_val_psnr = distributed_average(val_sum, val_count, device, distributed)
         if rank == 0:
+            best_val_psnr = max(best_val_psnr, last_val_psnr)
             print(
-                f"epoch={epoch} step={step} loss={avg_loss:.6f} val_psnr={val_psnr:.3f}",
+                f"epoch={epoch} step={step} loss={avg_loss:.6f} val_psnr={last_val_psnr:.3f}",
                 flush=True,
             )
             if epoch % args.save_every == 0:
-                save_checkpoint(
+                metrics = {
+                    "loss": avg_loss,
+                    "val_psnr": last_val_psnr,
+                    "best_val_psnr": best_val_psnr,
+                }
+                latest_path = save_checkpoint(
                     args.output_dir / "latest.pt",
                     model,
                     optimizer,
@@ -222,8 +232,19 @@ def main() -> int:
                     epoch=epoch,
                     step=step,
                     model_config=asdict(model_config),
-                    metrics={"loss": avg_loss, "val_psnr": val_psnr},
+                    metrics=metrics,
                 )
+                if should_validate and last_val_psnr >= best_val_psnr:
+                    save_checkpoint(
+                        args.output_dir / "best.pt",
+                        model,
+                        optimizer,
+                        scaler,
+                        epoch=epoch,
+                        step=step,
+                        model_config=asdict(model_config),
+                        metrics=metrics,
+                    )
         if distributed:
             dist.barrier()
 
