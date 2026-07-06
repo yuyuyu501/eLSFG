@@ -64,6 +64,28 @@ class SuperResolutionTests(unittest.TestCase):
             ).clamp(0.0, 1.0)
         self.assertTrue(torch.allclose(y, expected, atol=1e-6))
 
+    def test_model_accepts_exact_target_size(self):
+        x = torch.rand(1, 3, 16, 17)
+        model = build_sr_model(
+            variant="detail_aware",
+            dim=8,
+            depth=1,
+            num_heads=2,
+            scale_factor=3,
+            window_size=8,
+        )
+        model.eval()
+        with torch.inference_mode():
+            y = model(x, target_size=(48, 50))
+            expected = F.interpolate(
+                x,
+                size=(48, 50),
+                mode="bicubic",
+                align_corners=False,
+            ).clamp(0.0, 1.0)
+        self.assertEqual(tuple(y.shape), (1, 3, 48, 50))
+        self.assertTrue(torch.allclose(y, expected, atol=1e-6))
+
     def test_engine_bicubic_fallback_without_model(self):
         frame = np.zeros((17, 19, 3), dtype=np.uint8)
         frame[:, :, 0] = 128

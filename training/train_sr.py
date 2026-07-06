@@ -116,7 +116,7 @@ def validate(model, loader, device, amp_enabled: bool, channels_last: bool) -> t
             lr = lr.contiguous(memory_format=torch.channels_last)
             hr = hr.contiguous(memory_format=torch.channels_last)
         with autocast(device_type="cuda", enabled=amp_enabled):
-            pred = model(lr)
+            pred = model(lr, target_size=hr.shape[-2:])
             pred = crop_or_resize_to_match(pred, hr)
         score_sum += psnr(pred.float(), hr.float())
         count += 1
@@ -197,7 +197,7 @@ def main() -> int:
                 hr = hr.contiguous(memory_format=torch.channels_last)
             optimizer.zero_grad(set_to_none=True)
             with autocast(device_type="cuda", enabled=amp_enabled):
-                pred = model(lr)
+                pred = model(lr, target_size=hr.shape[-2:])
                 pred = crop_or_resize_to_match(pred, hr)
                 losses = criterion(pred, hr)
             scaler.scale(losses["loss"]).backward()

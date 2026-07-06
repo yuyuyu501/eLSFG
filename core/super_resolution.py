@@ -163,7 +163,7 @@ class SuperResolutionEngine:
             result = self._upscale_tiled(frame)
         else:
             tensor = self._preprocess(frame)
-            output = self._infer_tensor(tensor)
+            output = self._infer_tensor(tensor, target_resolution)
             result = self._postprocess(output)
 
         if result.shape[1] != target_resolution[0] or result.shape[0] != target_resolution[1]:
@@ -219,15 +219,27 @@ class SuperResolutionEngine:
         frame = (frame.float() * 255.0).clamp(0, 255).byte().cpu().numpy()
         return np.ascontiguousarray(frame)
 
-    def _infer_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _infer_tensor(
+        self,
+        tensor: torch.Tensor,
+        target_resolution: Optional[Resolution] = None,
+    ) -> torch.Tensor:
         with torch.inference_mode():
             if self.backend in self.INTERPOLATION_BACKENDS:
                 mode = self.backend
                 kwargs = {"scale_factor": self.config.scale_factor, "mode": mode}
+                if target_resolution is not None:
+                    kwargs.pop("scale_factor")
+                    kwargs["size"] = (target_resolution[1], target_resolution[0])
                 if mode in {"bilinear", "bicubic"}:
                     kwargs["align_corners"] = False
                 return F.interpolate(tensor, **kwargs).clamp(0.0, 1.0)
-            return self.model(tensor)
+            target_size = (
+                (target_resolution[1], target_resolution[0])
+                if target_resolution is not None
+                else None
+            )
+            return self.model(tensor, target_size=target_size)
 
     def _upscale_tiled(self, frame: np.ndarray) -> np.ndarray:
         scale = self.config.scale_factor

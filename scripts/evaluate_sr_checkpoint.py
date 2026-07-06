@@ -75,7 +75,7 @@ def main() -> int:
             if amp_enabled:
                 lr = lr.half()
             with autocast(device_type="cuda", enabled=amp_enabled):
-                pred = crop_or_resize_to_match(model(lr), hr)
+                pred = crop_or_resize_to_match(model(lr, target_size=hr.shape[-2:]), hr)
             bicubic = F.interpolate(
                 lr.float(),
                 size=hr.shape[-2:],

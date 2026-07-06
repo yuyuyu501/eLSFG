@@ -22,7 +22,18 @@ def crop_padding(x: torch.Tensor, pad_h: int, pad_w: int) -> torch.Tensor:
     return x
 
 
-def base_upsample(x: torch.Tensor, scale_factor: int) -> torch.Tensor:
+def base_upsample(
+    x: torch.Tensor,
+    scale_factor: int,
+    target_size: tuple[int, int] | None = None,
+) -> torch.Tensor:
+    if target_size is not None:
+        return F.interpolate(
+            x,
+            size=target_size,
+            mode="bicubic",
+            align_corners=False,
+        )
     return F.interpolate(
         x,
         scale_factor=scale_factor,
@@ -212,6 +223,17 @@ class PixelShuffleUpsampler(nn.Module):
         return self.net(x)
 
 
+def align_residual(residual: torch.Tensor, target_size: tuple[int, int] | None) -> torch.Tensor:
+    if target_size is None or residual.shape[-2:] == target_size:
+        return residual
+    return F.interpolate(
+        residual,
+        size=target_size,
+        mode="bilinear",
+        align_corners=False,
+    )
+
+
 class SRTransformer(nn.Module):
     """Lightweight image super-resolution transformer.
 
@@ -260,8 +282,12 @@ class SRTransformer(nn.Module):
     def _pad_to_window(self, x: torch.Tensor) -> tuple[torch.Tensor, int, int]:
         return pad_to_window(x, self.window_size)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = base_upsample(x, self.scale_factor)
+    def forward(
+        self,
+        x: torch.Tensor,
+        target_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        base = base_upsample(x, self.scale_factor, target_size)
 
         feat = self.input_proj(x)
         feat, pad_h, pad_w = self._pad_to_window(feat)
@@ -269,7 +295,7 @@ class SRTransformer(nn.Module):
             feat = block(feat)
         feat = crop_padding(feat, pad_h, pad_w)
 
-        residual = self.upscale(self.reconstruct(feat))
+        residual = align_residual(self.upscale(self.reconstruct(feat)), target_size)
         return (base + residual * self.residual_scale).clamp(0.0, 1.0)
 
 
@@ -304,12 +330,16 @@ class HybridSRTransformer(nn.Module):
         self.upscale = PixelShuffleUpsampler(dim, scale_factor)
         self.window_size = window_size
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = base_upsample(x, self.scale_factor)
+    def forward(
+        self,
+        x: torch.Tensor,
+        target_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        base = base_upsample(x, self.scale_factor, target_size)
         feat = self.input_proj(x)
         feat, pad_h, pad_w = pad_to_window(feat, self.window_size)
         feat = crop_padding(self.blocks(feat), pad_h, pad_w)
-        residual = self.upscale(self.reconstruct(feat))
+        residual = align_residual(self.upscale(self.reconstruct(feat)), target_size)
         return (base + residual * self.residual_scale).clamp(0.0, 1.0)
 
 
@@ -351,14 +381,18 @@ class AttentionSharingSRTransformer(nn.Module):
     def _pad_to_window(self, x: torch.Tensor) -> tuple[torch.Tensor, int, int]:
         return pad_to_window(x, self.window_size)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = base_upsample(x, self.scale_factor)
+    def forward(
+        self,
+        x: torch.Tensor,
+        target_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        base = base_upsample(x, self.scale_factor, target_size)
         feat = self.input_proj(x)
         feat, pad_h, pad_w = self._pad_to_window(feat)
         for group in self.groups:
             feat = group(feat)
         feat = crop_padding(feat, pad_h, pad_w)
-        residual = self.upscale(self.reconstruct(feat))
+        residual = align_residual(self.upscale(self.reconstruct(feat)), target_size)
         return (base + residual * self.residual_scale).clamp(0.0, 1.0)
 
 
@@ -396,10 +430,14 @@ class DetailAwareSRTransformer(nn.Module):
         self.reconstruct = nn.Sequential(nn.Conv2d(dim, dim, 3, padding=1), nn.GELU())
         self.upscale = PixelShuffleUpsampler(dim, scale_factor)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base = base_upsample(x, self.scale_factor)
+    def forward(
+        self,
+        x: torch.Tensor,
+        target_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        base = base_upsample(x, self.scale_factor, target_size)
         feat = self.blocks(self.input_proj(x))
-        residual = self.upscale(self.reconstruct(feat))
+        residual = align_residual(self.upscale(self.reconstruct(feat)), target_size)
         return (base + residual * self.residual_scale).clamp(0.0, 1.0)
 
 

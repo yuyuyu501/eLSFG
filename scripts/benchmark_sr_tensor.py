@@ -79,7 +79,7 @@ def run_tensor_benchmark(args: argparse.Namespace) -> dict[str, object]:
 
     with torch.inference_mode():
         for _ in range(max(0, args.warmup)):
-            output = model(input_tensor)
+            output = model(input_tensor, target_size=(args.target_height, args.target_width))
             output = align_tensor(output, args.target_height, args.target_width)
         if device.type == "cuda":
             torch.cuda.synchronize(device)
@@ -91,7 +91,7 @@ def run_tensor_benchmark(args: argparse.Namespace) -> dict[str, object]:
             end = torch.cuda.Event(enable_timing=True)
             for _ in range(max(1, args.runs)):
                 start.record()
-                output = model(input_tensor)
+                output = model(input_tensor, target_size=(args.target_height, args.target_width))
                 output = align_tensor(output, args.target_height, args.target_width)
                 end.record()
                 torch.cuda.synchronize(device)
@@ -102,7 +102,7 @@ def run_tensor_benchmark(args: argparse.Namespace) -> dict[str, object]:
 
             for _ in range(max(1, args.runs)):
                 t0 = time.perf_counter()
-                output = model(input_tensor)
+                output = model(input_tensor, target_size=(args.target_height, args.target_width))
                 output = align_tensor(output, args.target_height, args.target_width)
                 latencies.append((time.perf_counter() - t0) * 1000.0)
                 output_shape = tuple(output.shape)
