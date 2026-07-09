@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 def main() -> int:
     try:
+        from PySide6.QtGui import QFont
         from PySide6.QtWidgets import QApplication
     except ImportError:
         print("PySide6 is not installed. Install dependencies with: pip install -r requirements.txt")
@@ -21,6 +22,7 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName("eLSFG")
     qt_app.setOrganizationName("eLSFG")
+    qt_app.setFont(QFont("Microsoft YaHei UI", 9))
     window = MainWindow()
     window.show()
     return qt_app.exec()
